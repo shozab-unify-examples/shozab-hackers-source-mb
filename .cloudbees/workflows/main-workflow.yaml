@@ -22,6 +22,39 @@ jobs:
         run: |
           echo "=== Configure container registry credentials (simulated) ==="
           echo "[SIMULATED] Authenticated to registry index.docker.io"
+
+      - name: Run unit tests
+        id: unit-tests
+        kind: test
+        uses: docker://alpine:3.20
+        run: |
+            mkdir -p test-results
+            cat > test-results/junit.xml <<'EOF'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuite name="unit-tests" tests="6" failures="1" errors="0" skipped="0" time="0.242">
+              <testcase classname="unit.auth" name="test_user_login" time="0.042"/>
+              <testcase classname="unit.auth" name="test_user_logout" time="0.018"/>
+              <testcase classname="unit.claims" name="test_claims_submission" time="0.067"/>
+              <testcase classname="unit.claims" name="test_claims_validation" time="0.035"/>
+              <testcase classname="unit.eligibility" name="test_eligibility_lookup" time="0.051"/>
+              <testcase classname="unit.payments" name="test_payment_calculation" time="0.029">
+                <failure message="rounding edge case">AssertionError: expected 19.99 got 20.00</failure>
+              </testcase>
+            </testsuite>
+            EOF
+            echo "=== Running unit test suite (simulated) ==="
+            echo "=== 5/6 PASSED (83%) ==="
+            echo "83" >> $CLOUDBEES_OUTPUTS/pass-rate
+            echo "6" >> $CLOUDBEES_OUTPUTS/total
+            echo "5" >> $CLOUDBEES_OUTPUTS/passed
+            echo "1" >> $CLOUDBEES_OUTPUTS/failed
+      - name: Publish test results
+        kind: test
+        uses: cloudbees-io/publish-test-results@v2
+        with:
+          test-type: JUNIT
+          results-path: test-results
+
       - name: Build container image
         kind: build
         uses: docker://alpine:3.20
@@ -177,11 +210,14 @@ jobs:
             Running hackers-organized:${{ cloudbees.scm.sha }}
             **Artifact ID:** ${{ needs.build-container-image.outputs.ARTIFACT_ID }}
           format: MARKDOWN
-      - name: Register deployed artifact
-        kind: deploy
-        uses: docker://alpine:3.20
-        run: |
-          echo "=== Register deployed artifact (simulated) ==="
+      - name: Register build artifact
+        id: register-artifact
+        kind: build
+        uses: cloudbees-io/register-build-artifact@v2
+        with: 
+          version: ${{ cloudbees.scm.sha }}
+          url: docker.io/demo/hackers-organized:${{ cloudbees.scm.sha }}
+          name: demo/hackers-organized
     needs:
       - build-container-image
       - scan
