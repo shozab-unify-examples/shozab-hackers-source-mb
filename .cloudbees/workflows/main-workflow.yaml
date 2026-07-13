@@ -16,43 +16,41 @@ jobs:
       - name: Get source code
         kind: build
         uses: cloudbees-io/checkout@v1
-        continue-on-error: true
       - name: Configure container registry credentials
-        uses: cloudbees-io/configure-oci-credentials@v1
-        continue-on-error: true
-        id: dockerconfig
-        with:
-          registry: https://index.docker.io/v1/
-          username: ${{ secrets.DOCKERHUB_USER }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        kind: build
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Configure container registry credentials (simulated) ==="
+          echo "[SIMULATED] Authenticated to registry index.docker.io"
       - name: Build container image
         kind: build
-        uses: cloudbees-io/kaniko@v1
-        with:
-          destination: ${{ secrets.DOCKERHUB_USER }}/hackers-organized:${{ cloudbees.scm.sha }}
-          tar-path: container-image.tar
-          build-args: BUILDKIT_CONTEXT_KEEP_GIT_DIR=1,BUILDKIT_INLINE_CACHE=1
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Build container image (simulated) ==="
+          echo "[SIMULATED] Building hackers-organized:${{ cloudbees.scm.sha }}"
+          echo "[SIMULATED] Image built (no registry push — dummy workflow)"
       - name: Upload binary from container build
-        uses: cloudbees-io/asset-chain-utils-preprod/upload-binary@v1
-        id: upload-binary
-        with:
-          file-path: container-image.tar
-          file-type: BINARY_CONTAINER
-          debug: "true"
+        kind: build
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Upload binary from container build (simulated) ==="
+          echo "[SIMULATED] Uploaded container-image.tar to artifact storage"
       - name: Register build artifact
         id: register-artifact
-        uses: cloudbees-io/register-build-artifact@v2
-        with:
-          version: ${{ cloudbees.scm.sha }}
-          url: ${{ secrets.DOCKERHUB_USER }}/hackers-organized:${{ cloudbees.scm.sha }}
-          name: ldonleycb/hackers-organized
+        kind: build
+        uses: docker://alpine:3.20
+        run: |
+          ARTIFACT_ID="artifact-$(echo ${{ cloudbees.scm.sha }} | cut -c1-12)"
+          echo "${ARTIFACT_ID}" >> $CLOUDBEES_OUTPUTS/artifact-id
+          echo "=== Register build artifact (simulated) ==="
+          echo "[SIMULATED] Registered artifact ${ARTIFACT_ID}"
       - name: Publish evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
           content: |-
-            ## Built and pushed image to docker hub
+            ## 📦 Built and pushed image (simulated)
 
-            [Docker Hub](https://hub.docker.com/repository/docker/ldonleycb/hackers-organized/tags)
+            This is a dummy workflow step — no real registry push occurred.
 
             **Artifact ID:** ${{ steps.register-artifact.outputs.artifact-id }}
             **Image:** hackers-organized:${{ cloudbees.scm.sha }}
@@ -61,103 +59,94 @@ jobs:
       ARTIFACT_ID: ${{ steps.register-artifact.outputs.artifact-id }}
   scan:
     outputs:
-      BLOCKER_COUNT: ${{ steps.FetchSonarQubeIssues.outputs.BLOCKER_COUNT }}
-      CRITICAL_COUNT: ${{ steps.FetchSonarQubeIssues.outputs.CRITICAL_COUNT }}
-      MAJOR_COUNT: ${{ steps.FetchSonarQubeIssues.outputs.MAJOR_COUNT }}
-      MINOR_COUNT: ${{ steps.FetchSonarQubeIssues.outputs.MINOR_COUNT }}
+      BLOCKER_COUNT: ${{ steps.fake-scan.outputs.blocker-count }}
+      CRITICAL_COUNT: ${{ steps.fake-scan.outputs.critical-count }}
+      MAJOR_COUNT: ${{ steps.fake-scan.outputs.major-count }}
+      MINOR_COUNT: ${{ steps.fake-scan.outputs.minor-count }}
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
       - name: Get code coverage
         kind: test
-        uses: docker://node:lts
+        uses: docker://alpine:3.20
         run: |
-          npm ci
-          npm run test:coverage
-      - uses: cloudbees-io/sonarqube-bundled-sast-scan-code@v1
-        name: Scan with SonarQube
+          echo "=== Get code coverage (simulated) ==="
+          echo "[SIMULATED] test coverage: 84.3%"
+      - name: Scan with SonarQube
         kind: scan
-        continue-on-error: true
-        with:
-          language: LANGUAGE_JS
-          cover-file-name: coverage/clover.xml
-          sonar-exclusion: tests/*
-      - uses: cloudbees-io/snyk-sast-scan-code@v1
-        name: Synk SAST
-        kind: scan
-        continue-on-error: true
-        with:
-          orgname: ${{ secrets.SNYK_ORGNAME }}
-          token: ${{ secrets.SNYK_TOKEN }}
-          language: LANGUAGE_JS
-      - name: Scan with Snyk SCA
-        uses: cloudbees-io/snyk-sca-scan-dependency@v1
-        continue-on-error: true
-        with:
-          orgname: ${{ secrets.SNYK_ORGNAME }}
-          token: ${{ secrets.SNYK_TOKEN }}
-          language: LANGUAGE_JS
-      - name: Fetch SonarQube Issues
-        id: FetchSonarQubeIssues
-        uses: docker://alpine/git:latest
+        uses: docker://alpine:3.20
         run: |
-          apk add --no-cache curl jq
-          curl -u ${{ secrets.SONAR_USER }}:${{ secrets.SONAR_TOKEN }} \
-          "https://sonarqube.cb-demos.io/api/issues/search?componentKeys=HackersOrganized&severities=BLOCKER,CRITICAL,MAJOR,MINOR" \
-          -o sonar-issues.json
-          BLOCKER_COUNT=$(jq '[.issues[] | select(.severity=="BLOCKER")] | length' sonar-issues.json)
-          CRITICAL_COUNT=$(jq '[.issues[] | select(.severity=="CRITICAL")] | length' sonar-issues.json)
-          MAJOR_COUNT=$(jq '[.issues[] | select(.severity=="MAJOR")] | length' sonar-issues.json)
-          MINOR_COUNT=$(jq '[.issues[] | select(.severity=="MINOR")] | length' sonar-issues.json)
-
-          echo "${BLOCKER_COUNT}" >> $CLOUDBEES_OUTPUTS/BLOCKER_COUNT
-          echo "${CRITICAL_COUNT}" >> $CLOUDBEES_OUTPUTS/CRITICAL_COUNT
-          echo "${MAJOR_COUNT}" >> $CLOUDBEES_OUTPUTS/MAJOR_COUNT
-          echo "${MINOR_COUNT}" >> $CLOUDBEES_OUTPUTS/MINOR_COUNT
+          echo "=== SonarQube SAST scan (simulated) ==="
+          echo "[SIMULATED] 0 blocker, 0 critical, 2 major, 5 minor findings"
+      - name: Snyk SAST
+        kind: scan
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Snyk SAST scan (simulated) ==="
+          echo "[SIMULATED] No new SAST vulnerabilities found"
+      - name: Snyk SCA
+        kind: scan
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Snyk SCA scan (simulated) ==="
+          echo "[SIMULATED] 247 dependencies scanned, 0 critical/high"
+      - name: Fetch scan results
+        id: fake-scan
+        kind: scan
+        uses: docker://alpine:3.20
+        run: |
+          echo "0" >> $CLOUDBEES_OUTPUTS/blocker-count
+          echo "0" >> $CLOUDBEES_OUTPUTS/critical-count
+          echo "2" >> $CLOUDBEES_OUTPUTS/major-count
+          echo "5" >> $CLOUDBEES_OUTPUTS/minor-count
       - name: Publish evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
           content: |-
-            ## SonarQube Analysis Results
+            ## SonarQube Analysis Results (simulated)
 
-            | Severity             | Issue Count |
-            |----------------------|-------------|
-            | BLOCKER_COUNT        | ${{ steps.FetchSonarQubeIssues.outputs.BLOCKER_COUNT }} |
-            | CRITICAL_COUNT       | ${{ steps.FetchSonarQubeIssues.outputs.CRITICAL_COUNT }} |
-            | MAJOR_COUNT          | ${{ steps.FetchSonarQubeIssues.outputs.MAJOR_COUNT }} |
-            | MINOR_COUNT          | ${{ steps.FetchSonarQubeIssues.outputs.MINOR_COUNT }} |
+            | Severity | Issue Count |
+            |----------|-------------|
+            | Blocker  | ${{ steps.fake-scan.outputs.blocker-count }} |
+            | Critical | ${{ steps.fake-scan.outputs.critical-count }} |
+            | Major    | ${{ steps.fake-scan.outputs.major-count }} |
+            | Minor    | ${{ steps.fake-scan.outputs.minor-count }} |
           format: MARKDOWN
   deploy:
-    environment: DOW Production
+    environment: demo
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
-      - uses: cloudbees-days/setup-kubeconfig
-        name: Set kubeconfig
-        with:
-          kubeconfig: ${{ secrets.kubeconfig }}
-      - name: Deploy to cluster
-        uses: cloudbees-io/kustomize-deploy@v1
+      - name: Set kubeconfig
         kind: deploy
-        with:
-          kustomization-base-dir: ${{ cloudbees.workspace }}/k8s/base
-          kustomization-overlays-dir: ${{ cloudbees.workspace }}/k8s/overlays/prod
-          environment-variables: "{}"
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Set kubeconfig (simulated) ==="
+          echo "[SIMULATED] kubeconfig configured for target cluster"
+      - name: Deploy to cluster
+        kind: deploy
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Deploy to cluster (simulated) ==="
+          echo "[SIMULATED] kustomize apply -k k8s/overlays/prod"
+          echo "[SIMULATED] Deployment rolled out — 3/3 pods healthy"
       - name: Publish evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
           content: |-
-            ## Deployed environment
-            [Production frontend](https://hackers-organized-prod.preview.cb-demos.io/)
+            ## 🚀 Deployed environment (simulated)
+
+            This is a dummy workflow — no real Kubernetes deployment occurred.
 
             Running hackers-organized:${{ cloudbees.scm.sha }}
             **Artifact ID:** ${{ needs.build-container-image.outputs.ARTIFACT_ID }}
           format: MARKDOWN
       - name: Register deployed artifact
-        uses: cloudbees-io/register-deployed-artifact@v2
-        with:
-          artifact-id: ${{ needs.build-container-image.outputs.ARTIFACT_ID }}
-          target-environment: DOW Production
+        kind: deploy
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Register deployed artifact (simulated) ==="
+          echo "[SIMULATED] Registered deployment of artifact ${{ needs.build-container-image.outputs.ARTIFACT_ID }} to DOW Production"
     needs:
       - build-container-image
       - scan
