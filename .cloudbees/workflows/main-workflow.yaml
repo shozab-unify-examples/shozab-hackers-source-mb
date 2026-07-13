@@ -66,6 +66,42 @@ jobs:
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
+      - name: Run unit tests
+        id: unit-tests
+        kind: test
+        uses: docker://alpine:3.20
+        run: |
+          echo "=== Running unit test suite (simulated) ==="
+          echo "test_user_login              PASS   42ms"
+          echo "test_user_logout             PASS   18ms"
+          echo "test_claims_submission       PASS   67ms"
+          echo "test_claims_validation       PASS   35ms"
+          echo "test_eligibility_lookup      PASS   51ms"
+          echo "test_payment_calculation     FAIL   29ms  - rounding edge case"
+          echo "=== 5/6 PASSED (83%) ==="
+          echo "83" >> $CLOUDBEES_OUTPUTS/pass-rate
+          echo "6" >> $CLOUDBEES_OUTPUTS/total
+          echo "5" >> $CLOUDBEES_OUTPUTS/passed
+          echo "1" >> $CLOUDBEES_OUTPUTS/failed
+      - name: Publish unit test evidence
+        uses: cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |-
+            ## 🧪 Unit Test Results (simulated)
+
+            | Test | Result | Duration |
+            |------|--------|----------|
+            | test_user_login | ✅ Pass | 42ms |
+            | test_user_logout | ✅ Pass | 18ms |
+            | test_claims_submission | ✅ Pass | 67ms |
+            | test_claims_validation | ✅ Pass | 35ms |
+            | test_eligibility_lookup | ✅ Pass | 51ms |
+            | test_payment_calculation | ❌ Fail | 29ms — rounding edge case (non-blocking) |
+
+            **${{ steps.unit-tests.outputs.passed }}/${{ steps.unit-tests.outputs.total }} passed (${{ steps.unit-tests.outputs.pass-rate }}%)**
+
+            This is a dummy workflow step — no real test suite executed.
+          format: MARKDOWN
       - name: Get code coverage
         kind: test
         uses: docker://alpine:3.20
@@ -146,7 +182,6 @@ jobs:
         uses: docker://alpine:3.20
         run: |
           echo "=== Register deployed artifact (simulated) ==="
-          echo "[SIMULATED] Registered deployment of artifact ${{ needs.build-container-image.outputs.ARTIFACT_ID }} to DOW Production"
     needs:
       - build-container-image
       - scan
