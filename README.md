@@ -3,7 +3,8 @@ sn: My First Commit
 sn: My Second Commit
 sn: My Third Commit
 sn: My 4th Commi
-sn: My 5th Committ
+sn: My 5th Commit
+sn: My 6th Commit
 
 # ###########################################################
 # PLEASE NOTE:  DOW Demo YAML File located in Root Directory
